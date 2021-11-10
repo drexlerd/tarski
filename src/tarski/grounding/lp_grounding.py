@@ -40,7 +40,24 @@ class LPGroundingStrategy:
                 for binding in model[key]:
                     binding_with_constants = tuple(lang.get(c) for c in binding)
                     variables.add(StateVariableLite(symbol, binding_with_constants))
+        return variables
 
+    def ground_static_variables(self):
+        """ Create and index all state variables of the problem by exhaustively grounding all predicate and function
+        symbols that are considered to be fluent with respect to the problem constants. Thus, if the problem has one
+        fluent predicate "p" and one static predicate "q", and constants "a", "b", "c", the result of this operation
+        will be the state variables "p(a)", "p(b)" and "p(c)".
+        """
+        model = self._solve_lp()
+
+        variables = SymbolIndex()
+        for symbol in self.static_symbols:
+            lang = symbol.language
+            key = 'atom_' + symbol.name
+            if key in model:  # in case there is no reachable ground state variable from that fluent symbol
+                for binding in model[key]:
+                    binding_with_constants = tuple(lang.get(c) for c in binding)
+                    variables.add(StateVariableLite(symbol, binding_with_constants))
         return variables
 
     def ground_actions(self):
