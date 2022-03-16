@@ -1,6 +1,7 @@
 """
  Classes and methods related to the Logic-Program based grounding  strategy of planning problems.
 """
+import re
 from ..utils.command import silentremove
 from ..grounding.ops import approximate_symbol_fluency
 from ..reachability import create_reachability_lp, run_clingo, parse_model
@@ -8,6 +9,7 @@ from ..reachability.asp import GOAL
 from .errors import ReachabilityLPUnsolvable
 from ..util import SymbolIndex
 from .common import StateVariableLite
+from ..syntax import Atom
 
 
 class LPGroundingStrategy:
@@ -42,23 +44,39 @@ class LPGroundingStrategy:
                     variables.add(StateVariableLite(symbol, binding_with_constants))
         return variables
 
-    def ground_static_variables(self):
-        """ Create and index all state variables of the problem by exhaustively grounding all predicate and function
-        symbols that are considered to be fluent with respect to the problem constants. Thus, if the problem has one
-        fluent predicate "p" and one static predicate "q", and constants "a", "b", "c", the result of this operation
-        will be the state variables "p(a)", "p(b)" and "p(c)".
+    def ground_atoms(self):
+        """ Create dynamic state variables, static atoms and sorts of the problem by exhaustively grounding all predicate and function
+        symbols that are considered to be fluent with respect to the problem constants.".
+
+        Result will be:
+          SymbolIndex of dynamic atoms
+          list of static atoms [("static1", ("c1")), ("static2", ("c2","c3"))]
+          list of sorts [("sort1", ("c1")), ("sort2", ("c2")), ("sort3", ("c3"))]
         """
+
         model = self._solve_lp()
 
-        variables = SymbolIndex()
-        for symbol in self.static_symbols:
+        dynamic_atoms = []
+        for symbol in self.fluent_symbols:
             lang = symbol.language
             key = 'atom_' + symbol.name
             if key in model:  # in case there is no reachable ground state variable from that fluent symbol
                 for binding in model[key]:
                     binding_with_constants = tuple(lang.get(c) for c in binding)
-                    variables.add(StateVariableLite(symbol, binding_with_constants))
-        return variables
+                    dynamic_atoms.append(Atom(symbol, binding_with_constants))
+        static_atoms_textual = []
+        for symbol in self.static_symbols:
+            key = 'atom_' + symbol.name
+            if key in model:  # in case there is no reachable ground state variable from that fluent symbol
+                for binding in model[key]:
+                    static_atoms_textual.append((symbol.name, binding))
+        sorts_textual = []
+        for symbol, bindings in model.items():
+            if symbol.startswith("type_"):
+                sort_name = re.findall(r"type_(.*)", symbol)[0]
+                for binding in bindings:
+                    sorts_textual.append((sort_name, binding))
+        return dynamic_atoms, static_atoms_textual, sorts_textual
 
     def ground_actions(self):
         """  Return a dictionary mapping each action schema of the problem to the set of parameter groundings that
