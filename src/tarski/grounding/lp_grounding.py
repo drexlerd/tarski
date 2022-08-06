@@ -64,19 +64,20 @@ class LPGroundingStrategy:
                 for binding in model[key]:
                     binding_with_constants = tuple(lang.get(c) for c in binding)
                     dynamic_atoms.append(Atom(symbol, binding_with_constants))
-        static_atoms_textual = []
+        static_atoms = []
         for symbol in self.static_symbols:
             key = 'atom_' + symbol.name
             if key in model:  # in case there is no reachable ground state variable from that fluent symbol
                 for binding in model[key]:
-                    static_atoms_textual.append((symbol.name, binding))
+                    binding_with_constants = tuple(lang.get(c) for c in binding)
+                    static_atoms.append(Atom(symbol, binding_with_constants))
         sorts_textual = []
         for symbol, bindings in model.items():
             if symbol.startswith("type_"):
                 sort_name = re.findall(r"type_(.*)", symbol)[0]
                 for binding in bindings:
                     sorts_textual.append((sort_name, binding))
-        return dynamic_atoms, static_atoms_textual, sorts_textual
+        return dynamic_atoms, static_atoms, sorts_textual
 
     def ground_actions(self):
         """  Return a dictionary mapping each action schema of the problem to the set of parameter groundings that
